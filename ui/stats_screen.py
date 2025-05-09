@@ -1,40 +1,151 @@
+# ui/stats_screen.py
+
 import pygame
-import os
-from utils.plotter import DataPlotter
+from utils.visualize_data import Visualizer
 
 
 class StatsScreen:
     def __init__(self, screen):
         self.screen = screen
-        self.font = pygame.font.SysFont(None, 40)
-        self.image_path = "statistics_summary.png"
-        self.graph = None
+        self.clock = pygame.time.Clock()
+        self.font = pygame.font.SysFont(None, 32)
+        self.title_font = pygame.font.SysFont(None, 48)
+        self.section_font = pygame.font.SysFont(None, 40)
+        self.label_font = pygame.font.SysFont(None, 32, bold=True)
+        self.value_font = pygame.font.SysFont(None, 32)
 
-        # Generate graph on load
-        success = DataPlotter.generate_graph()
-        if success and os.path.exists(self.image_path):
-            image = pygame.image.load(self.image_path)
-            screen_w, screen_h = self.screen.get_size()
-            self.graph = pygame.transform.scale(image, (screen_w, screen_h - 100))
+        self.recent_stats = Visualizer.load_recent_stats()
+        self.stat_summary = Visualizer.get_statistical_summary()
+        self.graph_buttons = [
+            ("Bar Chart - Jump Count", Visualizer.show_bar_chart),
+            ("Line Chart - Deaths", Visualizer.show_line_chart),
+            ("Pie Chart - Hints", Visualizer.show_pie_chart),
+            ("Heatmap - Encounters", Visualizer.show_heatmap),
+        ]
+
+        self.show_recent = False
+        self.show_overall = False
+        self.show_summary = False
+
+        self.scroll_offset = 0
+        self.max_scroll = 1000
 
     def run(self):
-        clock = pygame.time.Clock()
-        while True:
-            self.screen.fill((30, 30, 30))
-            title = self.font.render("Statistics - Press B to go back", True, (255, 255, 255))
-            self.screen.blit(title, (120, 20))
+        SECTION_GAP = 40
+        BOX_GAP = 30
+        LINE_HEIGHT = 40
+        TITLE_OFFSET = 60
 
-            if self.graph:
-                self.screen.blit(self.graph, (0, 60))
-            else:
-                no_data = self.font.render("No statistics available.", True, (180, 180, 180))
-                self.screen.blit(no_data, (200, 300))
+        while True:
+            self.screen.fill((15, 15, 35))
+            center_x = self.screen.get_width() // 2
+            y = 50 - self.scroll_offset
+
+            title = self.title_font.render("\U0001f4ca Statistics", True, (255, 215, 0))
+            self.screen.blit(title, title.get_rect(center=(center_x, y)))
+            y += TITLE_OFFSET
+
+            button_labels = [("Recent", self.show_recent), ("Overall", self.show_overall),
+                             ("Summary", self.show_summary)]
+            btn_width = 180
+            btn_height = 45
+            btn_spacing = 30
+            total_width = len(button_labels) * btn_width + (len(button_labels) - 1) * btn_spacing
+            start_x = center_x - total_width // 2
+            button_rects = []
+
+            for i, (label, is_on) in enumerate(button_labels):
+                btn_x = start_x + i * (btn_width + btn_spacing)
+                rect = pygame.Rect(btn_x, y, btn_width, btn_height)
+                btn_color = (0, 180, 100) if is_on else (80, 80, 80)
+                pygame.draw.rect(self.screen, btn_color, rect, border_radius=8)
+                pygame.draw.rect(self.screen, (255, 255, 255), rect, 2, border_radius=8)
+                text = self.font.render(label, True, (255, 255, 255))
+                self.screen.blit(text, text.get_rect(center=rect.center))
+                button_rects.append((rect, label))
+            y += btn_height + SECTION_GAP
+
+            if self.show_recent:
+                recent_lines = list(self.recent_stats.items()) if self.recent_stats else [("No Data", "-")]
+                box_height = len(recent_lines) * LINE_HEIGHT + 20
+                box_rect = pygame.Rect(center_x - 210, y, 440, box_height)
+                pygame.draw.rect(self.screen, (30, 30, 60), box_rect, border_radius=10)
+                pygame.draw.rect(self.screen, (0, 200, 255), box_rect, 2, border_radius=10)
+
+                for i, (label, value) in enumerate(recent_lines):
+                    line_y = y + 10 + i * LINE_HEIGHT
+                    label_text = self.label_font.render(f"{label}:", True, (255, 255, 255))
+                    value_text = self.value_font.render(str(value), True, (200, 255, 200))
+                    self.screen.blit(label_text, (box_rect.left + 20, line_y))
+                    self.screen.blit(value_text, (box_rect.right - 20 - value_text.get_width(), line_y))
+
+                y += box_height + SECTION_GAP
+
+            if self.show_overall:
+                for i, (label, callback) in enumerate(self.graph_buttons):
+                    btn_rect = pygame.Rect(center_x - 180, y, 360, 40)
+                    pygame.draw.rect(self.screen, (30, 30, 60), btn_rect, border_radius=10)
+                    pygame.draw.rect(self.screen, (100, 100, 200), btn_rect, 2, border_radius=10)
+                    btn_text = self.font.render(f"[{i + 1}] {label}", True, (255, 255, 255))
+                    self.screen.blit(btn_text, btn_text.get_rect(center=btn_rect.center))
+                    y += 50
+                y += SECTION_GAP
+
+            if self.show_summary:
+                y += SECTION_GAP  # ✅ เพิ่มระยะห่างก่อน summary เริ่ม
+
+                for group, metrics in self.stat_summary.items():
+                    lines = list(metrics.items())
+
+                    # ✅ ชื่อกลุ่ม: แยกขึ้นไปบนกล่อง
+                    group_title = self.label_font.render(group, True, (255, 255, 255))
+                    self.screen.blit(group_title, (center_x - 200, y))
+                    y += LINE_HEIGHT  # ✅ เว้นหลังชื่อกลุ่ม
+
+                    box_height = len(lines) * LINE_HEIGHT + 20
+                    box_rect = pygame.Rect(center_x - 210, y, 440, box_height)
+                    pygame.draw.rect(self.screen, (30, 30, 60), box_rect, border_radius=10)
+                    pygame.draw.rect(self.screen, (255, 255, 100), box_rect, 2, border_radius=10)
+
+                    for i, (key, value) in enumerate(lines):
+                        line_y = y + 10 + i * LINE_HEIGHT
+                        key_text = self.value_font.render(f"{key}:", True, (255, 255, 255))
+                        val_text = self.value_font.render(str(value), True, (200, 255, 200))
+                        self.screen.blit(key_text, (box_rect.left + 20, line_y))
+                        self.screen.blit(val_text, (box_rect.right - 20 - val_text.get_width(), line_y))
+
+                    y += box_height + BOX_GAP  # ✅ เว้นท้ายแต่ละกล่อง
+
+            hint = self.font.render("\u2191 / \u2193 scroll | B: back | 1-4: graph | Click toggle above", True,
+                                    (180, 180, 180))
+            self.screen.blit(hint, hint.get_rect(center=(center_x, 560)))
 
             pygame.display.flip()
+
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     return "exit"
-                elif event.type == pygame.KEYDOWN and event.key == pygame.K_b:
-                    return "home"
+                elif event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_b:
+                        return "home"
+                    elif event.key in [pygame.K_DOWN, pygame.K_s]:
+                        self.scroll_offset += 30
+                    elif event.key in [pygame.K_UP, pygame.K_w]:
+                        self.scroll_offset = max(0, self.scroll_offset - 30)
+                    elif event.key in [pygame.K_1, pygame.K_2, pygame.K_3, pygame.K_4]:
+                        idx = int(event.unicode) - 1
+                        if 0 <= idx < len(self.graph_buttons):
+                            _, callback = self.graph_buttons[idx]
+                            callback()
+                elif event.type == pygame.MOUSEBUTTONDOWN:
+                    mx, my = pygame.mouse.get_pos()
+                    for rect, label in button_rects:
+                        if rect.collidepoint(mx, my):
+                            if label == "Recent":
+                                self.show_recent = not self.show_recent
+                            elif label == "Overall":
+                                self.show_overall = not self.show_overall
+                            elif label == "Summary":
+                                self.show_summary = not self.show_summary
 
-            clock.tick(60)
+            self.clock.tick(30)
