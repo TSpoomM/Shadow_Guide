@@ -1,11 +1,14 @@
+# main.py
+
 import pygame
 import random
 import os
 from ui.main_menu import MainMenu
 from ui.play_screen import PlayScreen
-from ui.settings_screen import SettingsScreen
+from ui.console_screen import ConsoleScreen
 from ui.records_screen import RecordsScreen
 from ui.stats_screen import StatsScreen
+from ui.name_input_screen import NameInputScreen
 
 
 class ShadowGuideGame:
@@ -13,11 +16,13 @@ class ShadowGuideGame:
         pygame.init()
         self.screen = pygame.display.set_mode((800, 600), pygame.RESIZABLE | pygame.SCALED)
         pygame.display.set_caption("Shadow Guide")
+        self.font = pygame.font.SysFont(None, 32)
         self.clock = pygame.time.Clock()
         self.level_maps = self.load_maps("assets/levels")
         self.used_maps = []
         self.current_screen = MainMenu(self.screen)
-        self.level = 0  # ⭐ เริ่มที่ level 0
+        self.level = 0
+        self.player_name = None  # ✅ เก็บชื่อผู้เล่นครั้งเดียว
 
     def load_maps(self, path):
         maps = []
@@ -35,16 +40,24 @@ class ShadowGuideGame:
 
         while running:
             next_screen = self.current_screen.run()
+
             if next_screen == "exit":
                 running = False
+
             elif next_screen == "home":
                 self.current_screen = MainMenu(self.screen)
                 self.level = 0
                 self.used_maps = []
+                self.player_name = None  # ✅ ล้างชื่อเมื่อกลับบ้าน
+
             elif isinstance(next_screen, str) and next_screen.startswith("play"):
-                if not self.level_maps:
-                    print("❌ No Map In - assets/levels")
-                    continue
+                # ✅ ถ้ายังไม่มีชื่อ ให้ถามก่อน
+                if not self.player_name:
+                    name_input = NameInputScreen(self.screen)
+                    self.player_name = name_input.run()
+                    if not self.player_name:
+                        continue  # ผู้ใช้กดออก
+
                 map_choice = self.get_next_map(previous_map)
                 if map_choice == "all_maps_completed":
                     result = self.show_finish_screen()
@@ -52,9 +65,12 @@ class ShadowGuideGame:
                         self.current_screen = MainMenu(self.screen)
                         self.level = 0
                         self.used_maps = []
+                        self.player_name = None
                     continue
+
                 previous_map = map_choice
-                self.current_screen = PlayScreen(self.screen, map_choice, self.level)
+                self.current_screen = PlayScreen(self.screen, map_choice, self.level, self.player_name)
+
             elif next_screen == "level_complete":
                 self.level += 1
                 map_choice = self.get_next_map(previous_map)
@@ -64,13 +80,18 @@ class ShadowGuideGame:
                         self.current_screen = MainMenu(self.screen)
                         self.level = 0
                         self.used_maps = []
+                        self.player_name = None
                     continue
+
                 previous_map = map_choice
-                self.current_screen = PlayScreen(self.screen, map_choice, self.level)
-            elif next_screen == "settings":
-                self.current_screen = SettingsScreen(self.screen)
+                self.current_screen = PlayScreen(self.screen, map_choice, self.level, self.player_name)
+
+            elif next_screen == "console":
+                self.current_screen = ConsoleScreen(self.screen)
+
             elif next_screen == "records":
                 self.current_screen = RecordsScreen(self.screen)
+
             elif next_screen == "stats":
                 self.current_screen = StatsScreen(self.screen)
 
@@ -97,9 +118,13 @@ class ShadowGuideGame:
 
     def show_finish_screen(self):
         clock = pygame.time.Clock()
-        font = pygame.font.SysFont(None, 50)
+        center_x = self.screen.get_width() // 2
+        center_y = self.screen.get_height() // 2
 
-        # ⭐ โชว์คะแนนเฉลี่ย
+        title_font = pygame.font.SysFont(None, 64, bold=True)
+        text_font = pygame.font.SysFont(None, 40)
+        button_font = pygame.font.SysFont(None, 32, bold=True)
+
         try:
             average_score = sum(self.current_screen.total_score_list) / len(self.current_screen.total_score_list)
         except:
@@ -107,19 +132,35 @@ class ShadowGuideGame:
 
         while True:
             self.screen.fill((0, 0, 0))
-            msg1 = font.render("🎉 You Finished All Maps!", True, (0, 255, 0))
-            msg2 = font.render(f"Average Score: {average_score:.2f}/10", True, (255, 255, 255))
-            msg3 = font.render("Press B to return Home", True, (200, 200, 200))
-            self.screen.blit(msg1, (100, 200))
-            self.screen.blit(msg2, (150, 260))
-            self.screen.blit(msg3, (140, 320))
+
+            # 🎉 Title
+            msg1 = title_font.render("✅ You Finished All Maps!", True, (0, 255, 0))
+            self.screen.blit(msg1, msg1.get_rect(center=(center_x, center_y - 100)))
+
+            # 📊 Score
+            msg2 = text_font.render(f"Average Score: {average_score:.2f}/10", True, (255, 255, 255))
+            self.screen.blit(msg2, msg2.get_rect(center=(center_x, center_y - 30)))
+
+            # 🔘 Button: B to home
+            back_rect = pygame.Rect(center_x - 100, center_y + 30, 200, 45)
+            pygame.draw.rect(self.screen, (50, 50, 200), back_rect, border_radius=8)
+            pygame.draw.rect(self.screen, (255, 255, 255), back_rect, 2, border_radius=8)
+
+            back_text = button_font.render("Back to Home (B)", True, (255, 255, 255))
+            self.screen.blit(back_text, back_text.get_rect(center=back_rect.center))
+
+            # Footer
+            footer = self.font.render("Press B to return Home", True, (180, 180, 180))
+            self.screen.blit(footer, footer.get_rect(center=(center_x, center_y + 110)))
+
             pygame.display.flip()
 
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     return "exit"
-                elif event.type == pygame.KEYDOWN and event.key == pygame.K_b:
-                    return "home"
+                elif event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_b:
+                        return "home"
 
             clock.tick(30)
 
