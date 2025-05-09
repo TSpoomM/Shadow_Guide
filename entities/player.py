@@ -29,7 +29,7 @@ class Player:
         # ⭐ Energy
         self.energy = 40
         self.max_energy = 40
-        self.energy_regen_rate = 0.1
+        self.energy_regen_rate = 0.2
 
         if spawn_points:
             self.rect.topleft = random.choice(spawn_points)
