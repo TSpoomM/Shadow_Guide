@@ -1,5 +1,3 @@
-# ui/records_screen.py
-
 import pygame
 import csv
 import os
@@ -27,20 +25,18 @@ class RecordsScreen:
             return []
 
         scores_by_name = defaultdict(list)
-        with open(file_path, mode='r', encoding='utf-8') as file:
+        with open(file_path, mode='r', encoding='utf-8-sig') as file:
             reader = csv.DictReader(file)
+            reader.fieldnames = [field.strip() for field in reader.fieldnames]  # 💡 remove extra spaces in header
+
             for row in reader:
                 try:
-                    score = 10
-                    if int(row["jump_count"]) > 10:
-                        score -= 1
-                    if float(row["avg_jump_interval"]) > 1.0:
-                        score -= 1
-                    if int(row["death_count"]) > 0:
-                        score -= 2
-                    score = max(0, score)
-                    scores_by_name[row["player_name"]].append(score)
-                except:
+                    name = row.get("player_name", "Unknown").strip()
+                    raw_score = row.get("level_score", "0")
+                    score = int(raw_score.strip()) if raw_score else 0
+                    scores_by_name[name].append(score)
+                except Exception as e:
+                    print(f"⚠️ Error parsing row: {row} => {e}")
                     continue
 
         grouped = []
@@ -75,13 +71,10 @@ class RecordsScreen:
         while True:
             self.screen.fill((15, 15, 35))
 
-            # Draw title (scrolls with content)
             title_y = 50 - self.scroll_offset
             title = self.title_font.render("🏆 Top Players (by Avg Score)", True, (255, 215, 0))
-            title_rect = title.get_rect(center=(self.screen.get_width() // 2, title_y))
-            self.screen.blit(title, title_rect)
+            self.screen.blit(title, title.get_rect(center=(self.screen.get_width() // 2, title_y)))
 
-            # Draw cards (scrolls with content)
             current_y = 120 - self.scroll_offset
             for i, record in enumerate(self.records):
                 if -self.card_height < current_y < self.screen.get_height() - 80:
@@ -91,14 +84,11 @@ class RecordsScreen:
                     )
                 current_y += self.card_height + self.card_spacing
 
-            # Footer Hint
             hint = self.font.render("↑ / ↓ or W / S to scroll   |   Press B to go back", True, (180, 180, 180))
-            hint_rect = hint.get_rect(center=(self.screen.get_width() // 2, 560))
-            self.screen.blit(hint, hint_rect)
+            self.screen.blit(hint, hint.get_rect(center=(self.screen.get_width() // 2, 560)))
 
             pygame.display.flip()
 
-            # Input handling
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     return "exit"

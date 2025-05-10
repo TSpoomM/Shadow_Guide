@@ -1,10 +1,9 @@
-# utils/visualize_data.py
-
 import csv
 import os
 import matplotlib.pyplot as plt
 import seaborn as sns
 from collections import Counter, defaultdict
+import statistics
 
 
 class Visualizer:
@@ -15,19 +14,24 @@ class Visualizer:
         if not os.path.exists(Visualizer.FILE_PATH):
             return None
 
-        with open(Visualizer.FILE_PATH, "r", encoding="utf-8") as f:
-            reader = list(csv.DictReader(f))
+        with open(Visualizer.FILE_PATH, "r", encoding="utf-8-sig") as f:
+            reader = csv.DictReader(f)
+            reader.fieldnames = [name.strip() for name in reader.fieldnames]
+            reader = list(reader)
+
             if not reader:
                 return None
+
             last = reader[-1]
+
             return {
-                "Player": last["player_name"],
-                "Level": last["level"],
-                "Jump Count": last["jump_count"],
-                "Death Count": last["death_count"],
-                "Avg Time Between Jumps": round(float(last["avg_jump_interval"]), 3),
-                "Hints Given": last["hint_count"],
-                "Enemy Encounters": last["enemy_triggered"]
+                "Player": last.get("player_name", "?").strip(),
+                "Level": last.get("level_score") or last.get("level", "?"),
+                "Jump Count": last.get("jump_count", "?"),
+                "Death Count": last.get("death_count", "?"),
+                "Avg Time Between Jumps": round(float(last.get("avg_jump_interval", "0.0")), 3),
+                "Hints Given": last.get("hint_count", "?"),
+                "Enemy Encounters": last.get("enemy_triggered", "?")
             }
 
     @staticmethod
@@ -35,38 +39,39 @@ class Visualizer:
         if not os.path.exists(Visualizer.FILE_PATH):
             return {}
 
-        with open(Visualizer.FILE_PATH, "r", encoding="utf-8") as f:
-            reader = list(csv.DictReader(f))
+        try:
+            with open(Visualizer.FILE_PATH, "r", encoding="utf-8-sig") as f:
+                reader = csv.DictReader(f)
+                reader.fieldnames = [name.strip() for name in reader.fieldnames]
+                reader = list(reader)
+
             if not reader:
                 return {}
 
-        import statistics
-
-        try:
-            # แปลง field ที่ต้องคำนวณ
             df = {
-                "jump_count": [int(r["jump_count"]) for r in reader],
-                "death_count": [int(r["death_count"]) for r in reader],
-                "avg_jump_interval": [float(r["avg_jump_interval"]) for r in reader],
-                "hint_count": [int(r["hint_count"]) for r in reader],
-                "enemy_triggered": [int(r["enemy_triggered"]) for r in reader],
-                "level": [int(r["level"]) for r in reader]
+                "jump_count": [int(r.get("jump_count", 0)) for r in reader],
+                "death_count": [int(r.get("death_count", 0)) for r in reader],
+                "avg_jump_interval": [float(r.get("avg_jump_interval", 0.0)) for r in reader],
+                "hint_count": [int(r.get("hint_count", 0)) for r in reader],
+                "enemy_triggered": [int(r.get("enemy_triggered", 0)) for r in reader],
+                "level": [int(r.get("level", 0)) for r in reader],
             }
 
-            # รวม hint per level
-            level_hints = {}
+            # Hints per level
+            level_hints = defaultdict(list)
             for r in reader:
-                lvl = int(r["level"])
-                count = int(r["hint_count"])
-                level_hints.setdefault(lvl, []).append(count)
-            avg_hint_per_level = round(sum([sum(v) / len(v) for v in level_hints.values()]) / len(level_hints), 2)
+                lvl = int(r.get("level", 0))
+                hints = int(r.get("hint_count", 0))
+                level_hints[lvl].append(hints)
+
+            avg_hint_per_level = round(sum(sum(v) / len(v) for v in level_hints.values()) / len(level_hints), 2)
 
             return {
                 "Jump Count": {
                     "Mean": round(statistics.mean(df["jump_count"]), 2),
                     "Min": min(df["jump_count"]),
                     "Max": max(df["jump_count"]),
-                    "SD": round(statistics.stdev(df["jump_count"]), 2)
+                    "SD": round(statistics.stdev(df["jump_count"]), 2) if len(df["jump_count"]) > 1 else 0.0
                 },
                 "Deaths": {
                     "Mean": round(statistics.mean(df["death_count"]), 2),
@@ -87,20 +92,25 @@ class Visualizer:
                     "Max": max(df["enemy_triggered"])
                 }
             }
-        except:
+
+        except Exception as e:
+            print("❌ Error in get_statistical_summary:", e)
             return {}
 
     @staticmethod
     def show_bar_chart():
         level_jumps = defaultdict(list)
-        with open(Visualizer.FILE_PATH, "r", encoding="utf-8") as f:
+        with open(Visualizer.FILE_PATH, "r", encoding="utf-8-sig") as f:
             reader = csv.DictReader(f)
             for row in reader:
-                level = int(row["level"])
-                jump = int(row["jump_count"])
-                level_jumps[level].append(jump)
+                try:
+                    level = int(row.get("level", 0))
+                    jump = int(row.get("jump_count", 0))
+                    level_jumps[level].append(jump)
+                except:
+                    continue
 
-        levels = sorted(level_jumps.keys())
+        levels = sorted(level_jumps)
         avg_jumps = [sum(v) / len(v) for v in [level_jumps[l] for l in levels]]
 
         plt.figure()
@@ -114,14 +124,17 @@ class Visualizer:
     @staticmethod
     def show_line_chart():
         level_deaths = defaultdict(list)
-        with open(Visualizer.FILE_PATH, "r", encoding="utf-8") as f:
+        with open(Visualizer.FILE_PATH, "r", encoding="utf-8-sig") as f:
             reader = csv.DictReader(f)
             for row in reader:
-                level = int(row["level"])
-                deaths = int(row["death_count"])
-                level_deaths[level].append(deaths)
+                try:
+                    level = int(row.get("level", 0))
+                    deaths = int(row.get("death_count", 0))
+                    level_deaths[level].append(deaths)
+                except:
+                    continue
 
-        levels = sorted(level_deaths.keys())
+        levels = sorted(level_deaths)
         total_deaths = [sum(level_deaths[l]) for l in levels]
 
         plt.figure()
@@ -136,10 +149,13 @@ class Visualizer:
     @staticmethod
     def show_pie_chart():
         hint_counter = Counter()
-        with open(Visualizer.FILE_PATH, "r", encoding="utf-8") as f:
+        with open(Visualizer.FILE_PATH, "r", encoding="utf-8-sig") as f:
             reader = csv.DictReader(f)
             for row in reader:
-                hint_counter["Hints"] += int(row["hint_count"])
+                try:
+                    hint_counter["Hints"] += int(row.get("hint_count", 0))
+                except:
+                    continue
 
         plt.figure()
         plt.pie(hint_counter.values(), labels=hint_counter.keys(), autopct="%1.1f%%", startangle=140)
@@ -150,15 +166,15 @@ class Visualizer:
     @staticmethod
     def show_heatmap():
         xy_counter = defaultdict(int)
-        # ปลอมตำแหน่งไว้ก่อน (เพราะ CSV ไม่มีจริง)
-        # คุณสามารถเปลี่ยนให้จริงได้ถ้าเก็บตำแหน่งจริงในอนาคต
-        with open(Visualizer.FILE_PATH, "r", encoding="utf-8") as f:
+        with open(Visualizer.FILE_PATH, "r", encoding="utf-8-sig") as f:
             reader = csv.DictReader(f)
             for i, row in enumerate(reader):
-                # กระจายตำแหน่งจำลอง (ใช้ i เพื่อให้แตกต่าง)
-                x = (i * 5) % 10
-                y = (i * 3) % 10
-                xy_counter[(x, y)] += int(row["enemy_triggered"])
+                try:
+                    x = (i * 5) % 10
+                    y = (i * 3) % 10
+                    xy_counter[(x, y)] += int(row.get("enemy_triggered", 0))
+                except:
+                    continue
 
         heat = [[0] * 10 for _ in range(10)]
         for (x, y), count in xy_counter.items():

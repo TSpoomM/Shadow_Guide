@@ -1,10 +1,10 @@
-import csv
 import tkinter as tk
-import matplotlib.pyplot as plt
-import seaborn as sns
 from tkinter import ttk
+import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+import csv
 from collections import defaultdict
+import seaborn as sns
 
 
 class StatsDashboard(tk.Tk):
@@ -12,7 +12,6 @@ class StatsDashboard(tk.Tk):
         super().__init__()
         self.title("Statistics Dashboard")
         self.geometry("900x700")
-
         self.current_charts = {}
         self.create_widgets()
         self.protocol("WM_DELETE_WINDOW", self.on_close)
@@ -25,10 +24,10 @@ class StatsDashboard(tk.Tk):
         self.content_frame.pack(fill=tk.BOTH, expand=True)
 
         charts = [
-            ("jump count", self.plot_bar_chart),
-            ("death count", self.plot_line_chart),
-            ("hint count", self.plot_pie_chart),
-            ("enemy triggered", self.plot_heatmap),
+            ("Bar Chart", self.plot_bar_chart),
+            ("Line Chart", self.plot_line_chart),
+            ("Pie Chart", self.plot_pie_chart),
+            ("Heatmap", self.plot_heatmap)
         ]
 
         for label, func in charts:
@@ -45,8 +44,10 @@ class StatsDashboard(tk.Tk):
         self.destroy()
 
     def read_game_data(self):
-        with open("game_data.csv", "r", encoding="utf-8") as f:
-            return list(csv.DictReader(f))
+        with open("game_data.csv", "r", encoding="utf-8-sig") as f:
+            reader = csv.DictReader(f)
+            reader.fieldnames = [h.strip() for h in reader.fieldnames]
+            return list(reader)
 
     def toggle_chart(self, name, plot_fn):
         for widget in self.current_charts.values():
@@ -54,7 +55,8 @@ class StatsDashboard(tk.Tk):
         self.current_charts.clear()
 
         chart = plot_fn()
-        self.current_charts[name] = chart
+        if chart:
+            self.current_charts[name] = chart
 
     def embed_plot(self, fig):
         canvas = FigureCanvasTkAgg(fig, master=self.content_frame)
@@ -68,8 +70,16 @@ class StatsDashboard(tk.Tk):
         data = self.read_game_data()
         level_jumps = defaultdict(list)
         for row in data:
-            level = int(row["level"])
-            level_jumps[level].append(int(row["jump_count"]))
+            try:
+                level = int(row.get("level", 0))
+                jump = int(row.get("jump_count", 0))
+                level_jumps[level].append(jump)
+            except:
+                continue
+
+        if not level_jumps:
+            return None
+
         levels = sorted(level_jumps)
         avg_jumps = [sum(v) / len(v) for v in [level_jumps[l] for l in levels]]
 
@@ -78,14 +88,23 @@ class StatsDashboard(tk.Tk):
         ax.set_title("Average Jump Count per Level")
         ax.set_xlabel("Level")
         ax.set_ylabel("Jump Count")
+        ax.set_xticks(levels)
         return self.embed_plot(fig)
 
     def plot_line_chart(self):
         data = self.read_game_data()
         level_deaths = defaultdict(list)
         for row in data:
-            level = int(row["level"])
-            level_deaths[level].append(int(row["death_count"]))
+            try:
+                level = int(row.get("level", 0))
+                deaths = int(row.get("death_count", 0))
+                level_deaths[level].append(deaths)
+            except:
+                continue
+
+        if not level_deaths:
+            return None
+
         levels = sorted(level_deaths)
         total_deaths = [sum(level_deaths[l]) for l in levels]
 
@@ -95,17 +114,38 @@ class StatsDashboard(tk.Tk):
         ax.set_xlabel("Level")
         ax.set_ylabel("Deaths")
         ax.grid(True)
+        ax.set_xticks(levels)
         return self.embed_plot(fig)
 
     def plot_pie_chart(self):
         data = self.read_game_data()
-        hint_total = sum(int(row["hint_count"]) for row in data)
-        labels = ["Hints Used", "Other"]
-        sizes = [hint_total, max(1, 100 - hint_total)]
+        hint_totals = defaultdict(int)
+        for row in data:
+            for hint_key, label in [
+                ("hint_jump_now", "Jump Now!"),
+                ("hint_enemy_close", "Enemy Close!"),
+                ("hint_almost_there", "Almost There!"),
+                ("hint_go_left", "Go Left!"),
+                ("hint_go_right", "Go Right!"),
+                ("hint_be_careful", "Be Careful!")
+            ]:
+                try:
+                    hint_totals[label] += int(row.get(hint_key, 0))
+                except:
+                    continue
+
+        labels = list(hint_totals.keys())
+        sizes = list(hint_totals.values())
+
+        if sum(sizes) == 0:
+            fig, ax = plt.subplots()
+            ax.text(0.5, 0.5, 'No Hint Data Available', ha='center', va='center')
+            ax.axis('off')
+            return self.embed_plot(fig)
 
         fig, ax = plt.subplots()
         ax.pie(sizes, labels=labels, autopct="%1.1f%%", startangle=140)
-        ax.set_title("AI Hint Usage")
+        ax.set_title("AI Hint Type Distribution")
         ax.axis("equal")
         return self.embed_plot(fig)
 
@@ -113,9 +153,15 @@ class StatsDashboard(tk.Tk):
         data = self.read_game_data()
         xy_counter = defaultdict(int)
         for i, row in enumerate(data):
-            x = (i * 5) % 10
-            y = (i * 3) % 10
-            xy_counter[(x, y)] += int(row["enemy_triggered"])
+            try:
+                x = (i * 5) % 10
+                y = (i * 3) % 10
+                xy_counter[(x, y)] += int(row.get("enemy_triggered", 0))
+            except:
+                continue
+
+        if not xy_counter:
+            return None
 
         heat = [[0] * 10 for _ in range(10)]
         for (x, y), count in xy_counter.items():
@@ -123,7 +169,7 @@ class StatsDashboard(tk.Tk):
 
         fig, ax = plt.subplots()
         sns.heatmap(heat, cmap="YlOrRd", annot=True, fmt="d", ax=ax)
-        ax.set_title("Enemy Encounter Heatmap")
+        ax.set_title("Enemy Encounter Heatmap (simulated)")
         return self.embed_plot(fig)
 
 

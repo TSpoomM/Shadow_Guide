@@ -1,9 +1,13 @@
+from collections import defaultdict
+
+
 class AIHelper:
     def __init__(self, player, platforms, enemies, goal):
         self.player = player
         self.platforms = platforms
         self.enemies = enemies
         self.goal = goal
+        self.hint_counter = defaultdict(int)
 
     def get_hints(self):
         hints = []
@@ -11,24 +15,28 @@ class AIHelper:
         # 1. Jump Now (close to trap)
         if self.is_near_gap():
             hints.append("Jump Now!")
+            self.hint_counter["Jump Now!"] += 1
 
         # 2. Enemy Close
         if self.is_enemy_close():
             hints.append("Enemy Close!")
+            self.hint_counter["Enemy Close!"] += 1
 
         # 3. Almost There
         if self.is_near_goal():
             hints.append("Almost There!")
+            self.hint_counter["Almost There!"] += 1
 
-        # 4. Go Left / Go Right
+        # 4. Go Left / Go Right / Be Careful
         direction_hint = self.analyze_direction()
         if direction_hint:
             hints.append(direction_hint)
+            self.hint_counter[direction_hint] += 1
 
         return hints
 
     def is_near_gap(self):
-        check_distance = 40  # pixel ข้างหน้า
+        check_distance = 40
         check_rect = self.player.rect.move(check_distance, 5)
         for plat, _ in self.platforms:
             if plat.colliderect(check_rect):
@@ -51,7 +59,6 @@ class AIHelper:
         left_risk = 0
         right_risk = 0
 
-        # Enemy risk
         for enemy in self.enemies:
             if enemy.rect.centerx < self.player.rect.centerx and abs(
                     enemy.rect.centerx - self.player.rect.centerx) < 150:
@@ -60,7 +67,6 @@ class AIHelper:
                     enemy.rect.centerx - self.player.rect.centerx) < 150:
                 right_risk += 3
 
-        # Gap risk
         left_gap = True
         right_gap = True
         for plat, _ in self.platforms:
@@ -73,7 +79,6 @@ class AIHelper:
         if right_gap:
             right_risk += 5
 
-        # Decision
         if left_risk < right_risk:
             return "Go Left!"
         elif right_risk < left_risk:
