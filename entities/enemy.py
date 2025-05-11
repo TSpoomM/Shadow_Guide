@@ -1,10 +1,14 @@
 import pygame
 import math
 import random
-from entities.explosion import Explosion  # Ensure this exists and has draw()
+from entities.explosion import Explosion
 
 
 class EnemyBase(pygame.sprite.Sprite):
+    """
+    Base class for all enemy types. Handles basic sprite setup and position.
+    """
+
     def __init__(self, x, y, color=(255, 0, 0)):
         super().__init__()
         self.image = pygame.Surface((32, 32))
@@ -12,10 +16,17 @@ class EnemyBase(pygame.sprite.Sprite):
         self.rect = self.image.get_rect(topleft=(x, y))
 
     def update(self, player_rect):
+        """
+        Base update method to be overridden by subclasses.
+        """
         pass
 
 
 class PatrollingEnemy(EnemyBase):
+    """
+    Enemy that moves back and forth within a fixed horizontal range.
+    """
+
     def __init__(self, x, y):
         super().__init__(x, y, (255, 100, 100))
         self.original_x = x
@@ -30,6 +41,10 @@ class PatrollingEnemy(EnemyBase):
 
 
 class ChasingEnemy(EnemyBase):
+    """
+    Enemy that moves horizontally toward the player if within range.
+    """
+
     def __init__(self, x, y):
         super().__init__(x, y, (255, 200, 100))
         self.speed = 2
@@ -45,6 +60,10 @@ class ChasingEnemy(EnemyBase):
 
 
 class JumpingEnemy(EnemyBase):
+    """
+    Enemy that moves vertically in a sinusoidal jumping pattern.
+    """
+
     def __init__(self, x, y):
         super().__init__(x, y, (100, 255, 100))
         self.base_y = y
@@ -57,6 +76,10 @@ class JumpingEnemy(EnemyBase):
 
 
 class ShootingEnemy(EnemyBase):
+    """
+    Enemy that periodically fires bullets toward the player.
+    """
+
     def __init__(self, x, y):
         super().__init__(x, y, (100, 100, 255))
         self.shoot_cooldown = 120
@@ -73,6 +96,10 @@ class ShootingEnemy(EnemyBase):
 
 
 class Bullet(pygame.sprite.Sprite):
+    """
+    Bullet fired by a ShootingEnemy, moves in a straight line toward the player.
+    """
+
     def __init__(self, x, y, target_x, target_y):
         super().__init__()
         self.image = pygame.Surface((8, 8))
@@ -89,10 +116,15 @@ class Bullet(pygame.sprite.Sprite):
 
 
 class ExplodingEnemy(EnemyBase):
+    """
+    Enemy that explodes when the player is within a trigger range.
+    Deals area damage and removes itself from the game.
+    """
+
     def __init__(self, x, y):
         super().__init__(x, y, (255, 150, 0))
-        self.trigger_range = 80  # เริ่มระเบิดถ้าเข้าใกล้
-        self.damage_radius = 80  # ระยะที่โดนดาเมจ AoE
+        self.trigger_range = 80
+        self.damage_radius = 80
         self.exploded = False
 
     def update(self, player_rect):
@@ -101,16 +133,20 @@ class ExplodingEnemy(EnemyBase):
         dist = math.hypot(player_rect.centerx - self.rect.centerx, player_rect.centery - self.rect.centery)
         if dist < self.trigger_range:
             self.exploded = True
-            self.kill()  # ระเบิดตัวเอง
+            self.kill()
             return Explosion(self.rect.centerx, self.rect.centery), dist < self.damage_radius
         return None, False
 
 
 class TeleportingEnemy(EnemyBase):
+    """
+    Enemy that teleports near the player every few seconds.
+    """
+
     def __init__(self, x, y):
         super().__init__(x, y, (150, 0, 200))
         self.timer = 0
-        self.teleport_interval = 120  # ทุก 2 วินาที (60 FPS)
+        self.teleport_interval = 90
         self.safe_distance = 100
 
     def update(self, player_rect):
@@ -118,7 +154,6 @@ class TeleportingEnemy(EnemyBase):
         if self.timer >= self.teleport_interval:
             self.timer = 0
             px, py = player_rect.center
-            # ย้ายตำแหน่งใกล้ player โดยไม่อยู่ตรงบน
             offset_x = random.choice([-1, 1]) * random.randint(50, 100)
             offset_y = random.choice([-1, 1]) * random.randint(30, 80)
             new_x = max(0, px + offset_x)
@@ -127,6 +162,10 @@ class TeleportingEnemy(EnemyBase):
 
 
 class DroppingEnemy(EnemyBase):
+    """
+    Enemy that stays above and drops down when the player walks underneath.
+    """
+
     def __init__(self, x, y):
         super().__init__(x, y, (100, 100, 100))
         self.original_y = y
@@ -135,8 +174,7 @@ class DroppingEnemy(EnemyBase):
 
     def update(self, player_rect):
         if not self.dropped:
-            # Check ถ้า player อยู่แนวตั้งใกล้ด้านล่าง
             if abs(player_rect.centerx - self.rect.centerx) < 20 and player_rect.centery > self.rect.centery:
                 self.dropped = True
         else:
-            self.rect.y += self.speed  # หล่นลงมา
+            self.rect.y += self.speed

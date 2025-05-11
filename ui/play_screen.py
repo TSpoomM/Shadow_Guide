@@ -5,18 +5,32 @@ from entities.enemy_factory import EnemyFactory
 from entities.player import Player
 from ai.ai_helper import AIHelper
 from utils.data_logger import DataLogger
-from entities.explosion import Explosion  # Required for exploding enemy support
 
 
 class PlayScreen:
+    """
+    Handles the main gameplay screen including player logic, enemy updates,
+    level progression, death handling, UI rendering, and hint system.
+    """
     TILE_SIZE = 30
 
     def __init__(self, screen, map_path, level, player_name="Unknown"):
+        """
+        Initialize the gameplay screen and all gameplay elements.
+
+        Args:
+            screen (pygame.Surface): Display surface to render onto.
+            map_path (str): Path to the level map file.
+            level (int): Current level number.
+            player_name (str): Name of the current player.
+        """
         self.screen = screen
         self.map_path = map_path
         self.level = level
         self.player_name = player_name
         self.font = pygame.font.SysFont(None, 40)
+
+        # Gameplay-related objects
         self.platforms = []
         self.enemies = Group()
         self.goal = None
@@ -25,6 +39,8 @@ class PlayScreen:
         self.level_complete = False
         self.level_data = self.load_map()
         self.spawn_points = []
+
+        # Stats tracking
         self.jump_count = 0
         self.death_count = 0
         self.jump_times = []
@@ -36,6 +52,7 @@ class PlayScreen:
         self.start_time = time.time()
         self.explosions = []
 
+        # Load images for tile rendering
         self.tile_images = {
             "#": pygame.transform.scale(pygame.image.load("assets/images/dirt_block_with_grass.png"),
                                         (self.TILE_SIZE, self.TILE_SIZE)),
@@ -50,6 +67,7 @@ class PlayScreen:
             (self.TILE_SIZE, self.TILE_SIZE)
         )
 
+        # Instantiate player and helper
         self.parse_map()
         self.player = Player(self.spawn_points, tile_size=self.TILE_SIZE)
         self.ai_helper = AIHelper(self.player, self.platforms, self.enemies, self.goal)
@@ -60,10 +78,19 @@ class PlayScreen:
         self.hint_interval = 3000
 
     def load_map(self):
+        """
+        Load map layout from the specified map file.
+
+        Returns:
+            list[str]: List of rows in the level file.
+        """
         with open(self.map_path, 'r') as f:
             return [line.strip() for line in f.readlines()]
 
     def parse_map(self):
+        """
+        Parse level text data and build platforms, enemies, spawn points, and goal.
+        """
         for y, row in enumerate(self.level_data):
             for x, tile in enumerate(row):
                 pos = pygame.Rect(x * self.TILE_SIZE, y * self.TILE_SIZE, self.TILE_SIZE, self.TILE_SIZE)
@@ -78,11 +105,18 @@ class PlayScreen:
                     self.spawn_points.append((pos.x, pos.y))
 
     def run(self):
+        """
+        Main gameplay loop: handles events, rendering, collision, and progression.
+
+        Returns:
+            str: Next screen identifier ("home", "exit", or "level_complete")
+        """
         clock = pygame.time.Clock()
 
         while True:
             self.screen.fill((10, 10, 40))
 
+            # Input handling
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     return "exit"
@@ -99,19 +133,20 @@ class PlayScreen:
                                 self.jump_times.append(interval)
                             self.last_jump_time = current_time
 
+            # Player movement + collision
             keys = pygame.key.get_pressed()
             move_x = self.player.move(keys)
             self.player.apply_gravity()
             self.player.check_collision_y(self.platforms)
             self.player.check_collision_x(self.platforms, move_x)
 
-            # 💀 ตกเหว
+            # 💀 Player falls off the screen
             if self.player.rect.top > self.screen.get_height():
                 result = self._handle_death()
                 if result in ["home", "exit"]:
                     return result
 
-            # 🧨 เช็คศัตรูและระเบิด
+            # 🧨 Enemy updates
             self.explosions.clear()
             for enemy in list(self.enemies):
                 result = enemy.update(self.player.rect)
@@ -129,14 +164,14 @@ class PlayScreen:
                     if result in ["home", "exit"]:
                         return result
 
-            # 🎯 เข้า goal
+            # 🎯 # Player reaches goal
             if self.goal and self.player.rect.colliderect(self.goal):
                 self.level_complete = True
                 self.calculate_level_score()
                 self.save_stats()
                 return self.show_level_complete()
 
-            # 🎨 วาดพื้นและศัตรู
+            # 🎨 Render map, enemies, goal, player, and UI
             for plat, tile_type in self.platforms:
                 self.screen.blit(self.tile_images[tile_type], plat.topleft)
 
@@ -155,6 +190,12 @@ class PlayScreen:
             clock.tick(60)
 
     def _handle_death(self):
+        """
+        Handle player death: reduce HP, reset position, and check game over.
+
+        Returns:
+            str | None: "home" or "exit" if game is over, otherwise None.
+        """
         self.health -= 1
         self.level_score = max(0, self.level_score - 2)
         self.death_count += 1
@@ -167,6 +208,9 @@ class PlayScreen:
             return result
 
     def draw_helper_hint(self):
+        """
+        Display AI-generated hint text near the player.
+        """
         current_time = pygame.time.get_ticks()
         if current_time - self.last_hint_time > self.hint_interval:
             self.current_hints = self.ai_helper.get_hints()
@@ -178,6 +222,9 @@ class PlayScreen:
             self.screen.blit(hint_text, (self.player.rect.x - 20, self.player.rect.y - 40 - i * 20))
 
     def draw_ui(self):
+        """
+        Draw player's HP and energy bar on the top-left of the screen.
+        """
         text = self.font.render(f"HP: {self.health}  Level: {self.level}", True, (255, 255, 255))
         self.screen.blit(text, (10, 10))
 
@@ -191,6 +238,9 @@ class PlayScreen:
         pygame.draw.rect(self.screen, (255, 255, 255), (bar_x, bar_y, bar_width, bar_height), 2)
 
     def calculate_level_score(self):
+        """
+        Compute score based on time and jump usage, then append to history.
+        """
         elapsed_time = time.time() - self.start_time
         if self.jump_count > 10:
             self.level_score = max(0, self.level_score - 1)
@@ -199,6 +249,9 @@ class PlayScreen:
         self.total_score_list.append(self.level_score)
 
     def save_stats(self):
+        """
+        Save gameplay stats to the CSV file via DataLogger.
+        """
         avg_interval = sum(self.jump_times) / len(self.jump_times) if self.jump_times else 0.0
         DataLogger.log(
             level=self.level,
@@ -213,8 +266,14 @@ class PlayScreen:
         )
         # print(f"[LOGGED] {self.player_name} - Level {self.level}")
 
-    # 👉 UI screen functions moved out for clarity, as previously rewritten
     def show_level_complete(self):
+        """
+        Displays a UI screen when the player completes a level.
+        Allows the player to either proceed to the next level or return to the main menu.
+
+        Returns:
+            str: "level_complete", "home", or "exit"
+        """
         clock = pygame.time.Clock()
         center_x = self.screen.get_width() // 2
         center_y = self.screen.get_height() // 2
@@ -268,6 +327,13 @@ class PlayScreen:
             clock.tick(30)
 
     def show_game_over(self):
+        """
+        Displays a Game Over screen showing the player's average score.
+        Waits for the player to press 'B' to return to the main menu.
+
+        Returns:
+            str: "home" or "exit"
+        """
         clock = pygame.time.Clock()
         center_x = self.screen.get_width() // 2
         center_y = self.screen.get_height() // 2

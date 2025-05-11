@@ -3,6 +3,15 @@ from collections import defaultdict
 
 class AIHelper:
     def __init__(self, player, platforms, enemies, goal):
+        """
+        Initialize the AIHelper with references to the game environment.
+
+        Args:
+            player: The player object.
+            platforms: List of platform Rects in the level.
+            enemies: Group of enemy objects in the level.
+            goal: Rect representing the goal position.
+        """
         self.player = player
         self.platforms = platforms
         self.enemies = enemies
@@ -10,6 +19,11 @@ class AIHelper:
         self.hint_counter = defaultdict(int)
 
     def get_hints(self):
+        """
+        Analyze the current game state and generate context-aware hints for the player.
+        Returns:
+            List of string hints (e.g., "Jump Now!", "Go Right!")
+        """
         hints = []
 
         # 1. Jump Now (close to trap)
@@ -36,6 +50,12 @@ class AIHelper:
         return hints
 
     def is_near_gap(self):
+        """
+        Check if there is no platform ahead of the player, indicating a potential fall.
+
+        Returns:
+            True if there's a gap ahead, False otherwise.
+        """
         check_distance = 40
         check_rect = self.player.rect.move(check_distance, 5)
         for plat, _ in self.platforms:
@@ -44,6 +64,12 @@ class AIHelper:
         return True
 
     def is_enemy_close(self):
+        """
+        Check if any enemy is within a dangerous proximity to the player.
+
+        Returns:
+            True if an enemy is close, False otherwise.
+        """
         for enemy in self.enemies:
             if abs(enemy.rect.centerx - self.player.rect.centerx) < 100 and abs(
                     enemy.rect.centery - self.player.rect.centery) < 80:
@@ -51,11 +77,23 @@ class AIHelper:
         return False
 
     def is_near_goal(self):
+        """
+        Check if the player is within a reasonable distance of the level's goal.
+
+        Returns:
+            True if the player is near the goal, False otherwise.
+        """
         if self.goal and abs(self.goal.centerx - self.player.rect.centerx) < 200:
             return True
         return False
 
     def analyze_direction(self):
+        """
+        Evaluate the left and right directions to suggest a safer path.
+
+        Returns:
+            A string hint: "Go Left!", "Go Right!", or "Be Careful!" depending on threats and terrain.
+        """
         left_risk = 0
         right_risk = 0
 

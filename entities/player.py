@@ -3,7 +3,19 @@ import random
 
 
 class Player:
+    """
+    The Player class handles all logic for movement, jumping, dashing,
+    energy management, and platform collision.
+    """
+
     def __init__(self, spawn_points, tile_size=30):
+        """
+        Initializes the player at one of the provided spawn points.
+
+        Args:
+            spawn_points (list): List of (x, y) positions to randomly choose as spawn.
+            tile_size (int): Width and height of the player square.
+        """
         self.tile_size = tile_size
         self.spawn_points = spawn_points
         self.rect = pygame.Rect(0, 0, tile_size, tile_size)
@@ -37,6 +49,15 @@ class Player:
             self.rect.topleft = (100, 300)
 
     def move(self, keys):
+        """
+        Handles left/right movement and dash input.
+
+        Args:
+            keys (pygame.key.get_pressed()): Input state.
+
+        Returns:
+            int: Horizontal movement amount.
+        """
         move_x = 0
 
         # ⭐ Dash trigger
@@ -68,6 +89,12 @@ class Player:
         return move_x
 
     def jump(self):
+        """
+        Allows the player to jump (including double jump), consuming energy.
+
+        Returns:
+            bool: True if the jump is executed.
+        """
         if self.jump_count < self.max_jump:
             if self.energy >= 15:
                 self.velocity_y = self.jump_power
@@ -78,6 +105,9 @@ class Player:
         return False
 
     def apply_gravity(self):
+        """
+        Applies gravity and regenerates energy over time.
+        """
         self.velocity_y += self.gravity
         self.rect.y += self.velocity_y
 
@@ -87,6 +117,12 @@ class Player:
             self.energy = self.max_energy
 
     def check_collision_y(self, platforms):
+        """
+        Handles vertical collision with platforms (ground/ceiling).
+
+        Args:
+            platforms (list): List of (Rect, type) platform tuples.
+        """
         self.on_ground = False
         for plat, _ in platforms:
             if self.rect.colliderect(plat):
@@ -100,6 +136,13 @@ class Player:
                     self.velocity_y = 0
 
     def check_collision_x(self, platforms, move_x):
+        """
+        Handles horizontal collision with platforms.
+
+        Args:
+            platforms (list): List of (Rect, type) platform tuples.
+            move_x (int): Amount of horizontal movement.
+        """
         self.rect.x += move_x
         for plat, _ in platforms:
             if self.rect.colliderect(plat):
@@ -109,10 +152,19 @@ class Player:
                     self.rect.left = plat.right
 
     def reset_position(self):
+        """
+        Respawns the player at a random spawn point.
+        """
         if self.spawn_points:
             self.rect.topleft = random.choice(self.spawn_points)
         else:
             self.rect.topleft = (100, 300)
 
     def draw(self, screen):
+        """
+        Renders the player as a yellow rectangle.
+
+        Args:
+            screen (pygame.Surface): The screen to draw on.
+        """
         pygame.draw.rect(screen, (255, 255, 0), self.rect)

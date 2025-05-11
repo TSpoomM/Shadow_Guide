@@ -5,7 +5,18 @@ from collections import defaultdict
 
 
 class RecordsScreen:
+    """
+    Displays a scrollable leaderboard showing top players sorted by average score.
+    Reads from the game_data.csv file and groups by player name.
+    """
+
     def __init__(self, screen):
+        """
+        Initialize the screen, fonts, record data, and scroll settings.
+
+        Args:
+            screen (pygame.Surface): The main display surface.
+        """
         self.screen = screen
         self.clock = pygame.time.Clock()
         self.font = pygame.font.SysFont(None, 32)
@@ -20,6 +31,13 @@ class RecordsScreen:
         self.max_scroll = max(0, len(self.records) * (self.card_height + self.card_spacing) + 60 - 400)
 
     def load_grouped_records(self):
+        """
+        Loads and processes score data grouped by player from CSV.
+        Computes average score and session count for each player.
+
+        Returns:
+            list[dict]: Sorted player records with name, avg_score, and sessions.
+        """
         file_path = "game_data.csv"
         if not os.path.exists(file_path):
             return []
@@ -48,10 +66,23 @@ class RecordsScreen:
                 "sessions": len(scores)
             })
 
+        # Sort records from the highest average score to lowest
         grouped.sort(key=lambda r: r["avg_score"], reverse=True)
         return grouped
 
     def draw_record_card(self, surface, x, y, width, height, rank, player, avg_score, sessions):
+        """
+        Draws a single leaderboard entry (a "card") on the screen.
+
+        Args:
+            surface (pygame.Surface): Target surface to draw on.
+            x, y (int): Top-left corner position.
+            width, height (int): Dimensions of the card.
+            rank (int): Player's rank.
+            player (str): Player name.
+            avg_score (float): Average score.
+            sessions (int): Number of games played.
+        """
         pygame.draw.rect(surface, (30, 30, 60), (x, y, width, height), border_radius=12)
         pygame.draw.rect(surface, (100, 100, 200), (x, y, width, height), 2, border_radius=12)
 
@@ -66,6 +97,13 @@ class RecordsScreen:
         surface.blit(text_sessions, (x + 300, y + 40))
 
     def run(self):
+        """
+        Main loop of the leaderboard screen.
+        Displays scrollable records and waits for user input.
+
+        Returns:
+            str: "home" if user presses B, or "exit" on quit.
+        """
         center_x = self.screen.get_width() // 2 - self.card_width // 2
 
         while True:

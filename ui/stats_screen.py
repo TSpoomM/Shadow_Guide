@@ -4,7 +4,18 @@ from utils.visualize_data import Visualizer
 
 
 class StatsScreen:
+    """
+    A UI screen for viewing player statistics.
+    Includes toggleable sections for recent data, overall graph, and statistical summary.
+    """
+
     def __init__(self, screen):
+        """
+        Initializes the statistics screen layout and loads data.
+
+        Args:
+            screen (pygame.Surface): The main display surface.
+        """
         self.screen = screen
         self.clock = pygame.time.Clock()
         self.font = pygame.font.SysFont(None, 32)
@@ -20,6 +31,12 @@ class StatsScreen:
         self.max_scroll = 1000
 
     def run(self):
+        """
+        Main loop for the stats screen. Handles scrolling and mouse toggle interactions.
+
+        Returns:
+            str: "home" or "exit" based on user input.
+        """
         SECTION_GAP = 40
         BOX_GAP = 30
         LINE_HEIGHT = 40
@@ -30,11 +47,12 @@ class StatsScreen:
             center_x = self.screen.get_width() // 2
             y = 50 - self.scroll_offset
 
+            # 📊 Title
             title = self.title_font.render("\U0001f4ca Statistics", True, (255, 215, 0))
             self.screen.blit(title, title.get_rect(center=(center_x, y)))
             y += TITLE_OFFSET
 
-            # Toggle Buttons
+            # 🔘 Toggle Buttons
             button_labels = [("Recent", self.show_recent), ("Overall", False), ("Summary", self.show_summary)]
             btn_width = 180
             btn_height = 45
@@ -54,7 +72,7 @@ class StatsScreen:
                 button_rects.append((rect, label))
             y += btn_height + SECTION_GAP
 
-            # Recent Section
+            # 📈 Recent Stats Section
             if self.show_recent:
                 recent_lines = list(self.recent_stats.items()) if self.recent_stats else [("No Data", "-")]
                 box_height = len(recent_lines) * LINE_HEIGHT + 20
@@ -71,10 +89,12 @@ class StatsScreen:
 
                 y += box_height + SECTION_GAP
 
-            # Summary Section
+            # 📊 Statistical Summary Section
             if self.show_summary:
                 y += SECTION_GAP
                 for group, metrics in self.stat_summary.items():
+
+                    # Section header
                     group_title = self.label_font.render(group, True, (255, 255, 255))
                     self.screen.blit(group_title, (center_x - 200, y))
                     y += LINE_HEIGHT
@@ -94,11 +114,13 @@ class StatsScreen:
 
                     y += box_height + BOX_GAP
 
+            # ⌨️ Footer hint
             hint = self.font.render("\u2191 / \u2193 scroll | B: back | Click toggle above", True, (180, 180, 180))
             self.screen.blit(hint, hint.get_rect(center=(center_x, 560)))
 
             pygame.display.flip()
 
+            # 🎮 Event handling
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     return "exit"
@@ -113,6 +135,8 @@ class StatsScreen:
                     mx, my = pygame.mouse.get_pos()
                     for rect, label in button_rects:
                         if rect.collidepoint(mx, my):
+
+                            # Toggle sections
                             if label == "Recent":
                                 self.show_recent = not self.show_recent
                             elif label == "Summary":

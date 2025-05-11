@@ -1,14 +1,22 @@
-import tkinter as tk
-from tkinter import ttk
-import matplotlib.pyplot as plt
-from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import csv
-from collections import defaultdict
 import seaborn as sns
+import tkinter as tk
+import matplotlib.pyplot as plt
+from tkinter import ttk
+from collections import defaultdict
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 
 
 class StatsDashboard(tk.Tk):
+    """
+        A dashboard UI (using Tkinter) for displaying game statistics.
+        Contains bar chart, line chart, pie chart, and heatmap based on CSV data.
+        """
+
     def __init__(self):
+        """
+        Initializes the dashboard window, layout, and chart buttons.
+        """
         super().__init__()
         self.title("Statistics Dashboard")
         self.geometry("900x700")
@@ -17,6 +25,9 @@ class StatsDashboard(tk.Tk):
         self.protocol("WM_DELETE_WINDOW", self.on_close)
 
     def create_widgets(self):
+        """
+        Creates the toggle buttons and content frame for embedding charts.
+        """
         self.toggle_frame = tk.Frame(self)
         self.toggle_frame.pack(pady=10)
 
@@ -30,26 +41,44 @@ class StatsDashboard(tk.Tk):
             ("Enemy Encounter", self.plot_heatmap)
         ]
 
+        # Create toggle buttons
         for label, func in charts:
             b = ttk.Button(self.toggle_frame, text=label,
                            command=lambda l=label, f=func: self.toggle_chart(l, f))
             b.pack(side=tk.LEFT, padx=10)
 
+        # Close button
         ttk.Button(self, text="Close", command=self.on_close).pack(pady=5)
 
     def on_close(self):
+        """
+        Destroys all charts and closes the window.
+        """
         for widget in self.current_charts.values():
             widget.destroy()
         self.current_charts.clear()
         self.destroy()
 
     def read_game_data(self):
+        """
+        Reads and parses the game_data.csv file.
+
+        Returns:
+            list[dict]: List of records (each row) as dictionaries.
+        """
         with open("game_data.csv", "r", encoding="utf-8-sig") as f:
             reader = csv.DictReader(f)
             reader.fieldnames = [h.strip() for h in reader.fieldnames]
             return list(reader)
 
     def toggle_chart(self, name, plot_fn):
+        """
+        Displays a chart and hides the previous one.
+
+        Args:
+            name (str): Chart label name.
+            plot_fn (function): Function that returns a matplotlib figure.
+        """
         for widget in self.current_charts.values():
             widget.destroy()
         self.current_charts.clear()
@@ -59,6 +88,15 @@ class StatsDashboard(tk.Tk):
             self.current_charts[name] = chart
 
     def embed_plot(self, fig):
+        """
+        Embeds a matplotlib figure into the Tkinter frame.
+
+        Args:
+            fig (matplotlib.Figure): The figure to embed.
+
+        Returns:
+            widget: The Tkinter canvas widget.
+        """
         canvas = FigureCanvasTkAgg(fig, master=self.content_frame)
         canvas.draw()
         widget = canvas.get_tk_widget()
@@ -67,6 +105,9 @@ class StatsDashboard(tk.Tk):
         return widget
 
     def plot_bar_chart(self):
+        """
+        Plots a bar chart of average jump count per level.
+        """
         data = self.read_game_data()
         level_jumps = defaultdict(list)
         for row in data:
@@ -92,6 +133,9 @@ class StatsDashboard(tk.Tk):
         return self.embed_plot(fig)
 
     def plot_line_chart(self):
+        """
+        Plots a line chart showing total deaths per level.
+        """
         data = self.read_game_data()
         level_deaths = defaultdict(list)
         for row in data:
@@ -118,6 +162,9 @@ class StatsDashboard(tk.Tk):
         return self.embed_plot(fig)
 
     def plot_pie_chart(self):
+        """
+        Plots a pie chart of hint usage distribution by type.
+        """
         data = self.read_game_data()
         hint_totals = defaultdict(int)
         for row in data:
@@ -150,6 +197,9 @@ class StatsDashboard(tk.Tk):
         return self.embed_plot(fig)
 
     def plot_heatmap(self):
+        """
+        Plots a simulated heatmap of enemy encounters based on CSV index.
+        """
         data = self.read_game_data()
         xy_counter = defaultdict(int)
         for i, row in enumerate(data):
@@ -174,5 +224,8 @@ class StatsDashboard(tk.Tk):
 
 
 def launch_stats_window():
+    """
+    Launches the statistics dashboard window (for embedding in game or debugging).
+    """
     app = StatsDashboard()
     app.mainloop()

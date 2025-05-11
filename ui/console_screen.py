@@ -1,11 +1,20 @@
-# ui/console_screen.py
-
 import pygame
 import textwrap
 
 
 class ConsoleScreen:
+    """
+    ConsoleScreen displays the control instructions for the game.
+    Supports scrolling and returns to the main menu when 'B' is pressed.
+    """
+
     def __init__(self, screen):
+        """
+        Initializes fonts, layout, and control instruction content.
+
+        Args:
+            screen (pygame.Surface): The main display surface.
+        """
         self.screen = screen
         self.clock = pygame.time.Clock()
         self.title_font = pygame.font.SysFont(None, 52)
@@ -29,6 +38,9 @@ class ConsoleScreen:
         self.max_scroll = max(0, len(self.controls) * self.line_height - 360)
 
     def draw_controls(self):
+        """
+        Draws all key-description pairs with styled boxes and handles scrolling display.
+        """
         screen_w = self.screen.get_width()
         key_box_w, desc_box_w = 180, 420
         spacing = 20
@@ -37,11 +49,12 @@ class ConsoleScreen:
         current_y = 130 - self.scroll_offset
 
         for key_text, desc_text in self.controls:
+            # Word wrap for long descriptions
             wrapped_lines = textwrap.wrap(desc_text, width=38)
             desc_box_h = 50 + (len(wrapped_lines) - 1) * 22
             box_h = max(50, desc_box_h)
 
-            # แสดงเฉพาะรายการที่อยู่ในหน้าจอ
+            # Draw only if visible on screen
             if -60 < current_y < self.screen.get_height() - 80:
                 # Key box
                 key_rect = pygame.Rect(base_x, current_y, key_box_w, box_h)
@@ -50,7 +63,7 @@ class ConsoleScreen:
                 key_render = self.key_font.render(key_text, True, (255, 255, 100))
                 self.screen.blit(key_render, key_render.get_rect(center=key_rect.center))
 
-                # Desc box
+                # Description box
                 desc_rect = pygame.Rect(base_x + key_box_w + spacing, current_y, desc_box_w, box_h)
                 pygame.draw.rect(self.screen, (30, 30, 60), desc_rect, border_radius=8)
                 pygame.draw.rect(self.screen, (100, 100, 200), desc_rect, 2, border_radius=8)
@@ -59,28 +72,35 @@ class ConsoleScreen:
                     desc_render = self.desc_font.render(line, True, (255, 255, 255))
                     self.screen.blit(desc_render, (desc_rect.left + 12, desc_rect.top + 10 + j * 22))
 
-            # ✅ เพิ่มตำแหน่ง Y แบบ dynamic ตามความสูงจริง
+            # Increase Y for next line
             current_y += box_h + 10
 
     def run(self):
+        """
+        Runs the control screen loop, waits for user to press 'B' or scroll.
+        Returns:
+            str: "home" if user presses B, "exit" if user quits.
+        """
         while True:
             self.screen.fill((15, 15, 35))
 
-            # Title
+            # Draw title
             title_y = 50 - self.scroll_offset
             title = self.title_font.render("🎮 Controls / How to Play", True, (255, 215, 0))
             title_rect = title.get_rect(center=(self.screen.get_width() // 2, title_y))
             self.screen.blit(title, title_rect)
 
+            # Draw control list
             self.draw_controls()
 
-            # Hint
+            # Draw footer hint
             hint = self.hint_font.render("↑ / ↓ or W / S to scroll   |   Press B to go back", True, (180, 180, 180))
             hint_rect = hint.get_rect(center=(self.screen.get_width() // 2, 560))
             self.screen.blit(hint, hint_rect)
 
             pygame.display.flip()
 
+            # Handle events
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     return "exit"
