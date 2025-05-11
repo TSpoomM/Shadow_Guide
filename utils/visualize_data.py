@@ -23,12 +23,24 @@ class Visualizer:
                 return None
 
             last = reader[-1]
+            player = last.get("player_name", "?").strip()
+
+            # ✅ Filter records ของ player คนเดียวกัน
+            player_rows = [r for r in reader if r.get("player_name", "").strip() == player and r.get("level_score")]
+
+            # ✅ คำนวณค่าเฉลี่ย score ต่อ level
+            try:
+                scores = [float(r["level_score"]) for r in player_rows]
+                avg_score = round(sum(scores) / len(scores), 2)
+            except:
+                avg_score = "?"
 
             return {
-                "Player": last.get("player_name", "?").strip(),
-                "Level": last.get("level_score") or last.get("level", "?"),
+                "Player": player,
+                "Level": last.get("level") or "?",
                 "Jump Count": last.get("jump_count", "?"),
                 "Death Count": last.get("death_count", "?"),
+                "Avg Score Per Level": avg_score,  # ✅ ใช้ค่าที่คำนวณได้
                 "Avg Time Between Jumps": round(float(last.get("avg_jump_interval", "0.0")), 3),
                 "Hints Given": last.get("hint_count", "?"),
                 "Enemy Encounters": last.get("enemy_triggered", "?")
