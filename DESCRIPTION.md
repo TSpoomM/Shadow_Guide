@@ -119,3 +119,10 @@ Watch our gameplay demo here:
 [📺 YouTube - Shadow Guide](https://youtu.be/diJnR30bZtI)
 
 ---
+
+## 🔗 GitHub
+
+My GitHub is here:
+[Shadow Guide on GitHub](https://github.com/your-username/shadow-guide)
+
+--
