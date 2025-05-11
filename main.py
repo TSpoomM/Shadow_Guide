@@ -119,7 +119,7 @@ class ShadowGuideGame:
 
         pygame.quit()
 
-    def get_next_map(self):
+    def get_next_map(self, previous_map):
         """
         Selects the next map to load. Skips already used maps and starts with level0.
 
