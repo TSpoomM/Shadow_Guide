@@ -51,10 +51,10 @@ class Player:
 
         # ⭐ Walking
         if not self.is_dashing:
-            if keys[pygame.K_LEFT]:
+            if keys[pygame.K_LEFT] or keys[pygame.K_a]:
                 move_x = -self.speed
                 self.direction_x = -1
-            elif keys[pygame.K_RIGHT]:
+            elif keys[pygame.K_RIGHT] or keys[pygame.K_d]:
                 move_x = self.speed
                 self.direction_x = 1
 

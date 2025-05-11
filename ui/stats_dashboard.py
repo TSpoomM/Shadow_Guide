@@ -24,10 +24,10 @@ class StatsDashboard(tk.Tk):
         self.content_frame.pack(fill=tk.BOTH, expand=True)
 
         charts = [
-            ("Bar Chart", self.plot_bar_chart),
-            ("Line Chart", self.plot_line_chart),
-            ("Pie Chart", self.plot_pie_chart),
-            ("Heatmap", self.plot_heatmap)
+            ("Avg Jump Count Per Level", self.plot_bar_chart),
+            ("Total Death Per Level", self.plot_line_chart),
+            ("Ai Hint Type Distribution", self.plot_pie_chart),
+            ("Enemy Encounter", self.plot_heatmap)
         ]
 
         for label, func in charts:

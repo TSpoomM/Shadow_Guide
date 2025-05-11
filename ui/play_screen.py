@@ -89,7 +89,7 @@ class PlayScreen:
                 elif event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_b and self.game_over:
                         return "home"
-                    elif event.key == pygame.K_SPACE:
+                    elif event.key in [pygame.K_SPACE, pygame.K_w]:
                         jumped = self.player.jump()
                         if jumped:
                             self.jump_count += 1
@@ -211,7 +211,7 @@ class PlayScreen:
             player_name=self.player_name,
             hint_counter=self.ai_helper.hint_counter
         )
-        print(f"[LOGGED] {self.player_name} - Level {self.level}")
+        # print(f"[LOGGED] {self.player_name} - Level {self.level}")
 
     # 👉 UI screen functions moved out for clarity, as previously rewritten
     def show_level_complete(self):
