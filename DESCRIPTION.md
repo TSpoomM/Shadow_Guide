@@ -48,7 +48,7 @@ Located in: `ai_helper.py`
 - Analyzes player position vs obstacles/enemies
 - Provides hints such as:
   - `"Jump Now!"`, `"Go Left!"`, `"Enemy Close!"`
-- Counts hints by type → used for stats/graphs
+- Counts hint by type → used for stats/graphs
 
 ---
 
@@ -110,5 +110,12 @@ Shadow Guide combines precise movement, dynamic AI hinting, and enemy challenges
 ## 🧩 UML Class Diagram
 
 ![UML Diagram](Shadow_guide_UML.png)
+
+---
+
+## 🎥 Demo Video
+
+Watch our gameplay demo here:  
+[📺 YouTube - Shadow Guide](https://youtu.be/diJnR30bZtI)
 
 ---
