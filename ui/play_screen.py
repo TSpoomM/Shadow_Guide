@@ -1,7 +1,7 @@
 import pygame
 import time
 from pygame.sprite import Group
-from entities.enemy import EnemyFactory
+from entities.enemy_factory import EnemyFactory
 from entities.player import Player
 from ai.ai_helper import AIHelper
 from utils.data_logger import DataLogger
@@ -34,6 +34,7 @@ class PlayScreen:
         self.level_score = 10
         self.total_score_list = []
         self.start_time = time.time()
+        self.explosions = []
 
         self.tile_images = {
             "#": pygame.transform.scale(pygame.image.load("assets/images/dirt_block_with_grass.png"),
@@ -100,7 +101,6 @@ class PlayScreen:
 
             keys = pygame.key.get_pressed()
             move_x = self.player.move(keys)
-
             self.player.apply_gravity()
             self.player.check_collision_y(self.platforms)
             self.player.check_collision_x(self.platforms, move_x)
@@ -115,9 +115,26 @@ class PlayScreen:
                     self.save_stats()
                     return self.show_game_over()
 
-            self.enemies.update(self.player.rect)
-            for enemy in self.enemies:
-                if self.player.rect.colliderect(enemy.rect):
+            # Handle enemies
+            self.explosions.clear()
+            for enemy in list(self.enemies):
+                result = enemy.update(self.player.rect)
+
+                if isinstance(result, tuple):
+                    explosion, damaged = result
+                    if explosion:
+                        self.explosions.append(explosion)
+                    if damaged:
+                        self.health -= 1
+                        self.level_score = max(0, self.level_score - 2)
+                        self.death_count += 1
+                        self.enemy_triggered += 1
+                        self.player.reset_position()
+                        if self.health <= 0:
+                            self.game_over = True
+                            self.save_stats()
+                            return self.show_game_over()
+                elif self.player.rect.colliderect(enemy.rect):
                     self.health -= 1
                     self.level_score = max(0, self.level_score - 2)
                     self.death_count += 1
@@ -139,6 +156,9 @@ class PlayScreen:
                     self.screen.blit(self.tile_images[tile_type], plat.topleft)
 
             self.enemies.draw(self.screen)
+            for explosion in self.explosions:
+                explosion.draw(self.screen)
+
             if self.goal:
                 self.screen.blit(self.goal_image, self.goal.topleft)
 
@@ -199,58 +219,15 @@ class PlayScreen:
         )
 
     def show_level_complete(self):
-        clock = pygame.time.Clock()
-        center_x = self.screen.get_width() // 2
-        center_y = self.screen.get_height() // 2
-
-        title_font = pygame.font.SysFont(None, 64, bold=True)
-        text_font = pygame.font.SysFont(None, 40)
-        button_font = pygame.font.SysFont(None, 32, bold=True)
-
-        while True:
-            self.screen.fill((10, 10, 10))
-
-            # Title
-            msg1 = title_font.render("✅ You Passed This Level!", True, (0, 255, 0))
-            self.screen.blit(msg1, msg1.get_rect(center=(center_x, center_y - 100)))
-
-            # Subtitle
-            msg2 = text_font.render("Wanna go to the next level?", True, (255, 255, 255))
-            self.screen.blit(msg2, msg2.get_rect(center=(center_x, center_y - 30)))
-
-            # Buttons visual
-            enter_rect = pygame.Rect(center_x - 120, center_y + 30, 100, 45)
-            n_rect = pygame.Rect(center_x + 20, center_y + 30, 100, 45)
-
-            pygame.draw.rect(self.screen, (0, 200, 100), enter_rect, border_radius=8)
-            pygame.draw.rect(self.screen, (200, 50, 50), n_rect, border_radius=8)
-
-            pygame.draw.rect(self.screen, (255, 255, 255), enter_rect, 2, border_radius=8)
-            pygame.draw.rect(self.screen, (255, 255, 255), n_rect, 2, border_radius=8)
-
-            enter_text = button_font.render("Enter / Y", True, (255, 255, 255))
-            n_text = button_font.render("N", True, (255, 255, 255))
-            self.screen.blit(enter_text, enter_text.get_rect(center=enter_rect.center))
-            self.screen.blit(n_text, n_text.get_rect(center=n_rect.center))
-
-            # Footer
-            footer = self.font.render("Press Enter/Y to continue or N to return", True, (180, 180, 180))
-            self.screen.blit(footer, footer.get_rect(center=(center_x, center_y + 110)))
-
-            pygame.display.flip()
-
-            for event in pygame.event.get():
-                if event.type == pygame.QUIT:
-                    return "exit"
-                elif event.type == pygame.KEYDOWN:
-                    if event.key in [pygame.K_RETURN, pygame.K_y]:
-                        return "level_complete"
-                    elif event.key == pygame.K_n or event.key == pygame.K_b:
-                        return "home"
-
-            clock.tick(30)
+        return self._show_message("✅ You Passed This Level!", "Wanna go to the next level?", ["Enter / Y", "N"],
+                                  "level_complete")
 
     def show_game_over(self):
+        return self._show_message("💀 Game Over!",
+                                  f"Your Average Score: {sum(self.total_score_list) / len(self.total_score_list):.2f}/10",
+                                  ["Back to Menu (B)"], "home")
+
+    def _show_message(self, title, subtitle, button_texts, return_key):
         clock = pygame.time.Clock()
         center_x = self.screen.get_width() // 2
         center_y = self.screen.get_height() // 2
@@ -258,30 +235,24 @@ class PlayScreen:
         title_font = pygame.font.SysFont(None, 64, bold=True)
         text_font = pygame.font.SysFont(None, 40)
         button_font = pygame.font.SysFont(None, 32, bold=True)
-
-        average_score = sum(self.total_score_list) / len(self.total_score_list) if self.total_score_list else 0
 
         while True:
             self.screen.fill((0, 0, 0))
 
-            # ❌ Title
-            msg1 = title_font.render("💀 Game Over!", True, (255, 50, 50))
-            self.screen.blit(msg1, msg1.get_rect(center=(center_x, center_y - 100)))
+            self.screen.blit(title_font.render(title, True, (255, 255, 255)), (center_x - 200, center_y - 100))
+            self.screen.blit(text_font.render(subtitle, True, (255, 255, 255)), (center_x - 200, center_y - 40))
 
-            # 📊 Score
-            score_text = text_font.render(f"Your Average Score: {average_score:.2f}/10", True, (255, 255, 255))
-            self.screen.blit(score_text, score_text.get_rect(center=(center_x, center_y - 30)))
-
-            # 🔘 Button: Back
-            back_rect = pygame.Rect(center_x - 90, center_y + 30, 180, 45)
-            pygame.draw.rect(self.screen, (50, 50, 200), back_rect, border_radius=8)
-            pygame.draw.rect(self.screen, (255, 255, 255), back_rect, 2, border_radius=8)
-            back_text = button_font.render("Back to Menu (B)", True, (255, 255, 255))
-            self.screen.blit(back_text, back_text.get_rect(center=back_rect.center))
-
-            # Footer
-            footer = self.font.render("Press B to return", True, (180, 180, 180))
-            self.screen.blit(footer, footer.get_rect(center=(center_x, center_y + 110)))
+            if return_key == "level_complete":
+                enter_rect = pygame.Rect(center_x - 120, center_y + 30, 100, 45)
+                n_rect = pygame.Rect(center_x + 20, center_y + 30, 100, 45)
+                pygame.draw.rect(self.screen, (0, 200, 100), enter_rect, border_radius=8)
+                pygame.draw.rect(self.screen, (200, 50, 50), n_rect, border_radius=8)
+                self.screen.blit(button_font.render(button_texts[0], True, (255, 255, 255)), enter_rect.move(10, 5))
+                self.screen.blit(button_font.render(button_texts[1], True, (255, 255, 255)), n_rect.move(30, 5))
+            else:
+                back_rect = pygame.Rect(center_x - 90, center_y + 30, 180, 45)
+                pygame.draw.rect(self.screen, (50, 50, 200), back_rect, border_radius=8)
+                self.screen.blit(button_font.render(button_texts[0], True, (255, 255, 255)), back_rect.move(20, 5))
 
             pygame.display.flip()
 
@@ -289,7 +260,11 @@ class PlayScreen:
                 if event.type == pygame.QUIT:
                     return "exit"
                 elif event.type == pygame.KEYDOWN:
-                    if event.key == pygame.K_b:
+                    if return_key == "level_complete" and event.key in [pygame.K_RETURN, pygame.K_y]:
+                        return "level_complete"
+                    elif event.key in [pygame.K_n, pygame.K_b]:
+                        return "home"
+                    elif return_key == "home" and event.key == pygame.K_b:
                         return "home"
 
             clock.tick(30)
